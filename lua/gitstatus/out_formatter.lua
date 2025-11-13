@@ -269,7 +269,24 @@ function M.make_help_window_msg()
           hl_group = nil,
         },
         {
-          str = 'a',
+          str = 'S',
+          hl_group = 'Label',
+        },
+        {
+          str = ' - ',
+          hl_group = '',
+        },
+        {
+          str = 'Stage/unstage selected files',
+          hl_group = 'Function',
+        },
+      },
+      file = nil,
+    },
+    {
+      parts = {
+        {
+          str = '    a',
           hl_group = 'Label',
         },
         {

@@ -43,6 +43,7 @@ vim.keymap.set('n', '<leader>s', vim.cmd.Gitstatus)
 
 While inside the Git status window:
 - `s` – Stage/unstage the file on the current line
+- `S` – Stage/unstage selected files (in visual mode)
 - `a` – Stage all changes
 - `c` – Open commit prompt
 - `o` - Open file on the current line

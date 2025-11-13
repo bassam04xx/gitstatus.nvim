@@ -204,6 +204,110 @@ local function toggle_stage_file(
   )
 end
 
+---@param buf integer
+---@param namespace integer
+---@param parent_win_width number
+---@param parent_win_height number
+local function stage_selected_files(
+  buf,
+  namespace,
+  parent_win_width,
+  parent_win_height
+)
+  -- Get visual selection range
+  local start_line = vim.fn.line("'<")
+  local end_line = vim.fn.line("'>")
+  
+  -- Ensure we have a valid visual selection
+  if start_line == 0 or end_line == 0 then
+    vim.notify('No visual selection found', vim.log.levels.WARN)
+    return
+  end
+
+  -- Normalize the range (visual selection can be in any direction)
+  local min_line = math.min(start_line, end_line)
+  local max_line = math.max(start_line, end_line)
+  
+  -- Get all file lines within the selection range
+  local selected_files = {}
+  for i = min_line, max_line do
+    if buf_lines[i] and buf_lines[i].file then
+      table.insert(selected_files, buf_lines[i].file)
+    end
+  end
+  
+  if #selected_files == 0 then
+    vim.notify('No files selected in visual range', vim.log.levels.WARN)
+    return
+  end
+
+  -- Determine the action based on the selected files: 
+  -- If any file is not staged, we'll stage all; if all are staged, we'll unstage all
+  local any_unstaged = false
+  for _, file in ipairs(selected_files) do
+    if file.state ~= File.STATE.staged then
+      any_unstaged = true
+      break
+    end
+  end
+  
+  local git_repo_root_dir, err = git.repo_root_dir()
+  if err ~= nil then
+    vim.notify(err, vim.log.levels.ERROR)
+    return
+  end
+
+  local toggle_stage_file_func
+  if any_unstaged then
+    -- At least one file is not staged, so we'll stage all selected files
+    toggle_stage_file_func = git.stage_file
+  else
+    -- All files are staged, so we'll unstage all selected files
+    toggle_stage_file_func = function(file_path, cwd)
+      local file = nil
+      for _, f in ipairs(selected_files) do
+        if f.path == file_path then
+          file = f
+          break
+        end
+      end
+      
+      if file and file.type == File.EDIT_TYPE.added then
+        return git.unstage_added_file(file_path, cwd)
+      else
+        return git.unstage_modified_file(file_path, cwd)
+      end
+    end
+  end
+
+  -- Stage or unstage each selected file
+  local errors = {}
+  for _, file in ipairs(selected_files) do
+    local err = toggle_stage_file_func(file.path, git_repo_root_dir)
+    if err ~= nil then
+      table.insert(errors, 'File "' .. file.path .. '": ' .. err)
+    end
+    
+    -- Handle renamed files which might have orig_path
+    if file.orig_path ~= nil then
+      local err2 = toggle_stage_file_func(file.orig_path, git_repo_root_dir)
+      if err2 ~= nil then
+        table.insert(errors, 'Original file "' .. file.orig_path .. '": ' .. err2)
+      end
+    end
+  end
+
+  -- Show error messages if any
+  if #errors > 0 then
+    for _, error_msg in ipairs(errors) do
+      vim.notify(error_msg, vim.log.levels.ERROR)
+    end
+  end
+
+  -- Refresh the buffer to reflect changes
+  refresh_buffer(buf, namespace, nil, parent_win_width, parent_win_height)
+end
+
 local function go_next_file()
   local cursor = vim.api.nvim_win_get_cursor(0)
   local row = cursor[1]
@@ -355,6 +459,12 @@ local function register_keybindings(
   end, {
     buffer = buf,
     desc = 'Stage/unstage file',
+  })
+  vim.keymap.set('v', 'S', function()
+    stage_selected_files(buf, namespace, parent_win_width, parent_win_height)
+  end, {
+    buffer = buf,
+    desc = 'Stage/unstage selected files',
   })
   vim.keymap.set('n', 'a', function()
     git.stage_all()
