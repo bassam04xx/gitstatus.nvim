@@ -269,7 +269,7 @@ function M.make_help_window_msg()
           hl_group = nil,
         },
         {
-          str = 'S',
+          str = 'X',
           hl_group = 'Label',
         },
         {

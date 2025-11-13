@@ -460,7 +460,7 @@ local function register_keybindings(
     buffer = buf,
     desc = 'Stage/unstage file',
   })
-  vim.keymap.set('v', 'S', function()
+  vim.keymap.set('v', 'X', function()
     stage_selected_files(buf, namespace, parent_win_width, parent_win_height)
   end, {
     buffer = buf,
