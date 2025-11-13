@@ -241,48 +241,25 @@ local function stage_selected_files(
     return
   end
 
-  -- Determine the action based on the selected files: 
-  -- If any file is not staged, we'll stage all; if all are staged, we'll unstage all
-  local any_unstaged = false
-  for _, file in ipairs(selected_files) do
-    if file.state ~= File.STATE.staged then
-      any_unstaged = true
-      break
-    end
-  end
-  
   local git_repo_root_dir, err = git.repo_root_dir()
   if err ~= nil then
     vim.notify(err, vim.log.levels.ERROR)
     return
   end
 
-  local toggle_stage_file_func
-  if any_unstaged then
-    -- At least one file is not staged, so we'll stage all selected files
-    toggle_stage_file_func = git.stage_file
-  else
-    -- All files are staged, so we'll unstage all selected files
-    toggle_stage_file_func = function(file_path, cwd)
-      local file = nil
-      for _, f in ipairs(selected_files) do
-        if f.path == file_path then
-          file = f
-          break
-        end
-      end
-      
-      if file and file.type == File.EDIT_TYPE.added then
-        return git.unstage_added_file(file_path, cwd)
-      else
-        return git.unstage_modified_file(file_path, cwd)
-      end
-    end
-  end
-
-  -- Stage or unstage each selected file
+  -- Process each selected file individually, toggling its state like the 's' key
   local errors = {}
   for _, file in ipairs(selected_files) do
+    -- Determine the appropriate action based on the individual file's state
+    local toggle_stage_file_func
+    if file.state == File.STATE.staged then
+      toggle_stage_file_func = file.type == File.EDIT_TYPE.added and git.unstage_added_file
+        or git.unstage_modified_file
+    else
+      toggle_stage_file_func = git.stage_file
+    end
+
+    -- Stage or unstage the file
     local err = toggle_stage_file_func(file.path, git_repo_root_dir)
     if err ~= nil then
       table.insert(errors, 'File "' .. file.path .. '": ' .. err)
